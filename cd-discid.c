@@ -116,20 +116,28 @@ int main(int argc, char *argv[])
 	int len;
 	int drive, i, totaltime;
 	long int cksum=0;
+	int musicbrainz=0;
 	unsigned char first=1, last=1;
 	char *devicename=DEVICE_NAME;
 	struct cdrom_tochdr hdr;
 	struct cdrom_tocentry *TocEntry;
+	char *command=argv[0];
 #if defined(__OpenBSD__) || defined(__NetBSD__)
 	struct ioc_read_toc_entry t;
 #elif defined(__APPLE__)
 	dk_cd_read_disc_info_t discInfoParams;
 #endif
 
+	if (argc >= 2 && ! strcmp(argv[1], "--musicbrainz")) {
+		musicbrainz = 1;
+		argc--;
+		argv++;
+	}
 	if (argc == 2) {
 		devicename = argv[1];
 	} else if (argc > 2) {
-		fprintf(stderr, "Usage: %s [devicename]\n", argv[0]);
+		fprintf(stderr, "Usage: %s [--musicbrainz] [devicename]\n",
+			command);
 		exit(1);
 	}
 
@@ -240,18 +248,23 @@ int main(int argc, char *argv[])
 		    ((TocEntry[0].cdte_track_address + CD_MSF_OFFSET) / CD_FRAMES);
 
 	/* print discid */
-	printf("%08lx", (cksum % 0xff) << 24 | totaltime << 8 | last);
+	if (! musicbrainz)
+		printf("%08lx ", (cksum % 0xff) << 24 | totaltime << 8 | last);
 
 	/* print number of tracks */
-	printf(" %d", last);
+	printf("%d", last);
 
 	/* print frame offsets of all tracks */
 	for (i = 0; i < last; i++) {
 		printf(" %d", TocEntry[i].cdte_track_address + CD_MSF_OFFSET);
 	}
-	
-	/* print length of disc in seconds */
-        printf(" %d\n", (TocEntry[last].cdte_track_address + CD_MSF_OFFSET) / CD_FRAMES);
+
+	if (musicbrainz) {
+		printf(" %d\n", TocEntry[last].cdte_track_address + CD_MSF_OFFSET);
+	} else {
+	  	/* print length of disc in seconds */
+	  	printf(" %d\n", (TocEntry[last].cdte_track_address + CD_MSF_OFFSET) / CD_FRAMES);
+	}
 
         free(TocEntry);
 
